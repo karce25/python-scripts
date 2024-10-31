@@ -13,6 +13,8 @@ endpoint = '/mgmt/tm/shared/licensing/registration'  #endpoint to query
 username = 'username'
 password = 'password'
 
+# Extracting value from response
+
 def extract_value (response_json, key):
     for k, v in response_json.items():
         if k==key:
