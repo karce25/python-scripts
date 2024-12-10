@@ -7,7 +7,13 @@ This script extracts virtual addresses from multiple BIG-IP devices and saves th
 
 - ``` requests ``` library
 - A CSV file containing the IP addresses or hostnames of the BIG-IP devices
-- Sets common credentials (username and password)
+- Sets common credentials (username and password) inside the python script
+```
+username = 'user'
+password = 'password'
+endpoint = '/mgmt/tm/ltm/virtual-address?%24select=address'
+
+```
 
 ## Usage
 
