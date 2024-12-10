@@ -25,6 +25,11 @@ ip_address
 10.10.10.11
 
 ```
+```
+ip_address
+bigiptest.local
+bigiptest1.local
+```
 
 # Running the script
 
