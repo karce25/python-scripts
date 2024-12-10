@@ -19,20 +19,6 @@ def send_get_request(ip_address, endpoint, username, password):
     
     return response.json()
 
-# def to extract value from response
-
-def extract_values(response_json, key):
-    values = []
-    if isinstance(response_json, dict):
-        for k, v in response_json.items():
-            if k == key:
-                values.append(v)
-            elif isinstance(v, (dict, list)):
-                values.extend(extract_values(v, key))
-    elif isinstance(response_json, list):
-        for item in response_json:
-            values.extend(extract_values(item, key))
-    return values
 
 # Argument parser to accept command-line arguments
 parser = argparse.ArgumentParser(description="Extract virtual addresses from multiple BIG-IPs and save to a CSV file.")
@@ -53,24 +39,24 @@ with open(csv_file_path, 'r') as csvfile:
 #Credentials assuming the same user is configured on the BIG-IPs     
 username = 'admin'
 password = 'admin'
-endpoint = '/mgmt/tm/ltm/virtual-address'
+endpoint = '/mgmt/tm/ltm/virtual-address?%24select=address'
 
 # File to store virtual addresses
 output_file = 'all_virtual_addresses.csv'
         
 
 # Process each BIG-IP
+
 with open(output_file, 'w', newline='') as csvfile:
     csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(['BIG-IP-MGMT', 'Virtual Address'])  # Write the headers of the csv file
+    csvwriter.writerow(['BIG-IP MGMT', 'Virtual Address'])  # Write the header of the csv file
 
     for ip_address in big_ip_ips:
         response_json = send_get_request(ip_address, endpoint, username, password)
-        virtual_addresses = extract_values(response_json, 'address')
-
-        if virtual_addresses:
-            for address in virtual_addresses:
-                csvwriter.writerow([ip_address, address])  # Write each virtual address with corresponding BIG-IP mgmt IP
+        if response_json and "items" in response_json:
+            for item in response_json["items"]:
+                if "address" in item:
+                    csvwriter.writerow([ip_address, item["address"]])  # Write each virtual address with corresponding BIG-IP mgmt IP or hostname
             print(f"Virtual addresses from {ip_address} have been written to '{output_file}'.")
         else:
-            print(f"Key 'address' not found in the response from {ip_address}.")
+            print(f"No virtual addresses found in the response from {ip_address}.")
