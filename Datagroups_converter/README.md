@@ -6,53 +6,61 @@ This script read a .txt file containing Datagroups records and converts those re
 
 ## Prerequisites
 
-- ``` requests ``` library
-- A CSV file containing the IP addresses or hostnames of the BIG-IP devices
-- Sets common credentials (username and password) inside the python script
-```
-username = 'user'
-password = 'password'
-endpoint = '/mgmt/tm/ltm/virtual-address?%24select=address'
-
-```
+- ``` json ``` library
+- ``` argparse ``` library
+- A txt file containing only the Data group records
 
 ## Usage
 
-Create a CSV file with the following format (could be either hostname or IP address) :
+1. Create a .txt file with the datagroup records, for example :
 
 ```
-ip_address
-10.10.10.10
-10.10.10.11
+"string1" { }
+"string2" { }
+(...)
 
 ```
-```
-ip_address
-bigiptest.local
-bigiptest1.local
-```
-
 # Running the script
 
-./virtual_address.py -file bigips.csv
+1. Run the script with the following command:
+   
+ ```
+./data_groups_to_as3 -f data.txt -n data_group
+
+```
+- `-f` or `--file`: Specifies the path to the input text file that contains the records.
+- `-n` or `--name`: Specifies the name of the AS3 block.
 
 # Output
 
-The script generates a CSV file named all_virtual_addresses.csv in the same directory as the script. This file contains the virtual addresses extracted from each BIG-IP device
+The script generates a json file named as3_block.json
 
 # Example output
 
 ```
-BIG-IP-MGMT,Virtual Address
-10.10.10.10,10.20.20.20
-10.10.10.10,10.20.20.104
-10.10.10.11,10.30.30.64
-
+{
+    "test_block": {
+        "class": "Data_Group",
+        "storageType": "internal",
+        "keyDataType": "string",
+        "records": [
+            {
+                "key": "string1",
+                "value": ""
+            },
+            {
+                "key": "string2",
+                "value": ""
+            },
+            {
+                "key": "string3",
+                "value": ""
+            }
+        ]
+    }
+}
 ```
 
-# Notes
-
-- Security Warning: The script uses verify=False to disable SSL verification.
 
 
 
