@@ -15,10 +15,8 @@ def construct_as3_json(lines,name):
     for line in lines:
         # Strip spaces
         line = line.strip()
-        #print (line)
         # Check if the line starts with "
         if line.startswith('"'):
-            #print ("on record conditional")
             # Extract the record string before the first " { " 
             record = line.split(' { ')[0].strip('"')
             records.append({"key": record, "value": ""})
