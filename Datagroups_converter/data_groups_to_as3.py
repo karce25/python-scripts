@@ -17,7 +17,7 @@ def construct_as3_json(lines,name):
         line = line.strip()
         #print (line)
         # Check if the line starts with "/Common"
-        if line.startswith('"/Common'):
+        if line.startswith('"'):
             #print ("on record conditional")
             # Extract the record string before the first " { " 
             record = line.split(' { ')[0].strip('"')
