@@ -71,13 +71,13 @@ def main():
     parser = argparse.ArgumentParser(description='Create virtual server, pool, and wide-IP on BIG-IP GTM.')
     parser.add_argument('-b', '--bigip-ip', required=True, help='BIG-IP IP address')
     parser.add_argument('-u', '--username', required=True, help='BIG-IP username')
-    parser.add_argument('-p', '--password', required=True, help='BIG-IP password')
+
     
     args = parser.parse_args()
     
     bigip_ip = args.bigip_ip
     bigip_username = args.username
-    bigip_password = args.password
+    bigip_password = getpass.getpass ( "Enter BIG-IP password: ")
     
     server_name = input("Enter the server name: ")
     virtual_server_name = input("Enter the virtual server name: ")
