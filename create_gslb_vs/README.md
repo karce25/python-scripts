@@ -39,24 +39,36 @@ The script generates a CSV file named all_virtual_addresses.csv in the same dire
 #./add_vs_gslb.py -b 10.10.10.10 -u admin -p admin
 
 ``` 
-Enter the server name: testserver
-Enter the virtual server name: vs_test
+Enter BIG-IP password: 
+Enter the server name: server_test
+Enter the virtual server name: virtual_test
 Enter the virtual server IP: 10.10.10.10
 Enter the virtual server port: 443
-Enter the wide-IP name: example-wide-ip
+Enter the pool name: test_pool
+Enter the wide-IP name: mywideip.com
+Virtual server virtual_test does not exist. Creating...
+Virtual server virtual_test created successfully.
+Creating pool test_pool ...
+Pool test_pool created successfully.
+Creating wide-IP mywideip.com...
+Wide-IP mywideip.com created successfully.
 
-Virtual server testserver does not exist. Creating...
-Virtual server testserver created successfully.
-Creating pool testserver...
-Pool testserver created successfully.
-Creating wide-IP example-wide-ip...
-Wide-IP example-wide-ip created successfully.
+```
+# Error Handling
+
+If an error occurs during any of the API calls, the script will print a detailed error message, including the status code and response from the server.
+
+Example:
+
+``` 
+Failed to create virtual server test_virtual. Status code: 400, Response: {"code":400,"message":"01070224:3: Pool Member on Pool /Common/test_pool of type A must contain a valid Virtual Server name because it is a terminal member.","errorStack":[],"apiError":3}
 
 ```
 
 # Notes
 
 - Security Warning: The script uses verify=False to disable SSL verification.
+
 
 
 
