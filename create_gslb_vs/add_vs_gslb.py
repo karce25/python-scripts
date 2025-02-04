@@ -83,7 +83,7 @@ def main():
     virtual_server_name = input("Enter the virtual server name: ")
     virtual_server_ip = input("Enter the virtual server IP: ")
     virtual_server_port = int(input("Enter the virtual server port: "))
-    pool_name = virtual_server_name
+    pool_name = input("Enter the pool name: ")
     wide_ip_name = input("Enter the wide-IP name: ")
 
     virtual_servers = get_virtual_servers(bigip_ip, bigip_username, bigip_password, server_name)
