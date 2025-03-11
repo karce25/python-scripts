@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-import requests
-import json
-
 # Inputs
 vs_name = "/Common/test-vs"
 snat_pool = "test-pool"
@@ -17,10 +14,6 @@ filename = "tmsh_commands.txt"
 # Function to generate tmsh commands and save to a text file
 def save_tmsh_commands_to_file(vs_name, snat_pool, pool_name, new_members, old_members, data_group, data_group_entries, original_data_group_entries, filename):
     tmsh_commands = []
-
-    # Add comment for modifying the virtual server
-    tmsh_commands.append(f"# Virtual server {vs_name.split('/')[-1]}")
-    tmsh_commands.append(f"tmsh modify ltm virtual {vs_name} source-address-translation {{ pool {snat_pool} type snat }}")
     
     # Add new pool members and disable current pool members
     for new_member in new_members:
@@ -41,9 +34,6 @@ def save_tmsh_commands_to_file(vs_name, snat_pool, pool_name, new_members, old_m
     # Add rollback commands section
     tmsh_commands.append("\n# Rollback Commands\n")
 
-    # Rollback: Remove SNAT pool from virtual server (if you want to keep this in rollback, otherwise remove these lines)
-    tmsh_commands.append(f"# Rollback virtual server {vs_name.split('/')[-1]}")
-    tmsh_commands.append(f"tmsh modify ltm virtual {vs_name} source-address-translation {{ type automap }}")
 
     for new_member in new_members:
         # Rollback: Disable new pool members
