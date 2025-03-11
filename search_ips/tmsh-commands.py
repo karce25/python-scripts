@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Function to generate TMSH commands for a single virtual server and append to files
-def append_tmsh_commands_to_file(vs_name, pool_name, new_members, old_members, data_group, data_group_entries, original_data_group_entries, config_filename, rollback_filename):
+def append_tmsh_commands_to_file(vs_name, pool_name, new_members, old_members, data_group, new_data_group_entry, old_data_group_entry, config_filename, rollback_filename):
     config_tmsh_commands = []
     rollback_tmsh_commands = []
 
@@ -19,14 +19,17 @@ def append_tmsh_commands_to_file(vs_name, pool_name, new_members, old_members, d
         rollback_tmsh_commands.append(f"# Enable old member in {pool_name.split('/')[-1]} for {vs_name}")
         rollback_tmsh_commands.append(f"tmsh modify ltm pool {pool_name} members modify {{ {old_member} {{ session user-enabled }} }}")
     
-    # Add comment for replacing data group entries
-    if data_group:
-        config_tmsh_commands.append(f"# Replace all entries in Data Group for {vs_name}")
-        data_group_entries_str = " ".join([f'"{entry}" {{ }}' for entry in data_group_entries])
-        config_tmsh_commands.append(f"tmsh modify ltm data-group internal {data_group} records replace-all-with {{ {data_group_entries_str} }}")
-        rollback_tmsh_commands.append(f"# Restore original entries in Data Group for {vs_name}")
-        original_data_group_entries_str = " ".join([f'"{entry}" {{ }}' for entry in original_data_group_entries])
-        rollback_tmsh_commands.append(f"tmsh modify ltm data-group internal {data_group} records replace-all-with {{ {original_data_group_entries_str} }}")
+    # Modify specific entries in the data group
+    if data_group and new_data_group_entry and old_data_group_entry:
+        # Add the new data group entry and delete the old one (config commands)
+        config_tmsh_commands.append(f"# Modify Data Group for {vs_name}")
+        config_tmsh_commands.append(f"tmsh modify ltm data-group internal {data_group} records add {{ \"{new_data_group_entry}\" {{ }} }}")
+        config_tmsh_commands.append(f"tmsh modify ltm data-group internal {data_group} records delete {{ \"{old_data_group_entry}\" }}")
+        
+        # Delete the new data group entry and restore the old one (rollback commands)
+        rollback_tmsh_commands.append(f"# Rollback Data Group modification for {vs_name}")
+        rollback_tmsh_commands.append(f"tmsh modify ltm data-group internal {data_group} records delete {{ \"{new_data_group_entry}\" }}")
+        rollback_tmsh_commands.append(f"tmsh modify ltm data-group internal {data_group} records add {{ \"{old_data_group_entry}\" {{ }} }}")
 
     # Append configuration commands to the config file
     with open(config_filename, 'a') as config_file:
@@ -66,11 +69,11 @@ if __name__ == "__main__":
 
         data_group = input("Enter data group name (leave blank if not applicable): ").strip()
         if data_group:
-            data_group_entries = input("Enter data group entries (comma-separated, e.g., 'entry1,entry2,entry3'): ").strip().split(',')
-            original_data_group_entries = input("Enter original data group entries for rollback (comma-separated): ").strip().split(',')
+            new_data_group_entry = input("Enter the new data group entry to add: ").strip()
+            old_data_group_entry = input("Enter the old data group entry to delete (for rollback purposes): ").strip()
         else:
-            data_group_entries = []
-            original_data_group_entries = []
+            new_data_group_entry = ""
+            old_data_group_entry = ""
 
         # Append the TMSH commands for this virtual server
         append_tmsh_commands_to_file(
@@ -79,8 +82,8 @@ if __name__ == "__main__":
             new_members=new_members,
             old_members=old_members,
             data_group=data_group,
-            data_group_entries=data_group_entries,
-            original_data_group_entries=original_data_group_entries,
+            new_data_group_entry=new_data_group_entry,
+            old_data_group_entry=old_data_group_entry,
             config_filename=config_filename,
             rollback_filename=rollback_filename
         )
