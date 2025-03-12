@@ -99,3 +99,5 @@ if __name__ == "__main__":
     print("\nTMSH script generation completed.")
     print(f"Final configuration commands can be found in {config_filename}")
     print(f"Final rollback commands can be found in {rollback_filename}")
+
+for pool in pool1 pool2 pool3 pool4; do echo "Getting stats for pool: $pool" >> ltm_pools_status.txt; tmsh show ltm pool "$pool" >> ltm_pools_status.txt; echo -e "\n----------------------------------------------------\n" >> ltm_pools_status.txt; done
