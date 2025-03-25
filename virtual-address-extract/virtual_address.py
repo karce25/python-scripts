@@ -60,3 +60,6 @@ with open(output_file, 'w', newline='') as csvfile:
             print(f"Virtual addresses from {ip_address} have been written to '{output_file}'.")
         else:
             print(f"No virtual addresses found in the response from {ip_address}.")
+
+
+for pool in $(tmsh list gtm wideip a test.com pools | awk '/^ {8}[a-zA-Z0-9_.-]+ {$/ {print $1}'); do tmsh list gtm pool a $pool members; done
