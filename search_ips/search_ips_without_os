@@ -1,0 +1,74 @@
+import csv
+from collections import deque
+
+def search_ips_in_files(ip_csv, input_files):
+    try:
+        # Read IP addresses from the CSV file
+        ip_addresses = []
+        with open(ip_csv, 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                ip_addresses.extend(row)
+        # Remove any empty strings from the list
+        ip_addresses = [ip.strip() for ip in ip_addresses if ip.strip()]
+        
+        for input_file in input_files:
+            try:
+                # Use variables to store match state
+                found_matches = False  # Flag to check if any match is found
+                match_content = []  # Store the matched content
+                
+                # Open the input file and search for matches
+                with open(input_file, 'r') as infile:
+                    # Use a deque to buffer previous 5 lines
+                    previous_lines = deque(maxlen=5)
+                    lines_after_match = 0
+                    after_match_buffer = []
+                    
+                    for line_number, line in enumerate(infile):
+                        if lines_after_match > 0:  # Keep appending lines after a match is found
+                            after_match_buffer.append(line.strip())
+                            lines_after_match -= 1
+                            if lines_after_match == 0:
+                                # Save buffered context (5 lines before, match, and 5 after)
+                                match_content.append(f"\nFile: {input_file} (Match for '{ip_address}')\n")
+                                match_content.append("\n".join(previous_lines) + "\n")
+                                match_content.append("-- MATCH --\n")
+                                match_content.append("\n".join(after_match_buffer) + "\n")
+                                match_content.append("\n" + "-" * 40 + "\n")
+                                # Reset buffers for the next match
+                                previous_lines.clear()
+                                after_match_buffer = []
+                            continue
+                        previous_lines.append(line.strip())  # Buffer the last 5 lines
+                        for ip_address in ip_addresses:
+                            if ip_address in line:
+                                found_matches = True
+                                # Start collecting lines after the match
+                                lines_after_match = 6  # 5 + the matched line
+                                after_match_buffer.append(line.strip())  # Match itself
+                                break
+                
+                # Write the output file only if matches are found
+                if found_matches:
+                    output_file = f"{input_file}_output.txt"
+                    with open(output_file, 'w') as outfile:
+                        outfile.writelines(match_content)
+                    print(f"Matches for IP addresses found in '{input_file}', written to '{output_file}'.")
+                else:
+                    print(f"No matches for IP addresses were found in '{input_file}'.")
+            
+            except FileNotFoundError:
+                print(f"Error: The file '{input_file}' was not found.")
+            except Exception as e:
+                print(f"An error occurred while reading '{input_file}': {e}")
+
+    except FileNotFoundError:
+        print(f"Error: The file '{ip_csv}' was not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Example usage
+ip_csv = 'ip_new.csv'  # Replace with your CSV file containing IP addresses
+input_files = ['config_file_1.txt', 'config_file_2.txt', 'config_file_3.txt', 'config_file_4.txt']  # Replace with your input file paths
+search_ips_in_files(ip_csv, input_files)
