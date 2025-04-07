@@ -1,8 +1,7 @@
 import csv
 from collections import deque
-import os  # For managing file paths
 
-def search_ips_in_files(ip_csv, input_files, output_dir=None):
+def search_ips_in_files(ip_csv, input_files):
     try:
         # Read IP addresses from the CSV file and validate input
         with open(ip_csv, 'r') as csvfile:
@@ -14,12 +13,6 @@ def search_ips_in_files(ip_csv, input_files, output_dir=None):
 
         # Track unmatched IPs
         unmatched_ips = ip_addresses.copy()
-
-        # Ensure the output directory exists or use the current directory
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
-        else:
-            output_dir = os.getcwd()
 
         for input_file in input_files:
             try:
@@ -55,7 +48,8 @@ def search_ips_in_files(ip_csv, input_files, output_dir=None):
                                 break  # Stop checking other IPs for this line
 
                 if found_matches:
-                    output_file = os.path.join(output_dir, f"{os.path.basename(input_file)}_output.txt")
+                    # Write matched content to an output file specific to the text file
+                    output_file = f"{input_file}_output.txt"
                     with open(output_file, 'w') as outfile:
                         outfile.writelines(match_content)
                     print(f"Matches for IP addresses found in '{input_file}', written to '{output_file}'.")
@@ -66,8 +60,8 @@ def search_ips_in_files(ip_csv, input_files, output_dir=None):
             except Exception as e:
                 print(f"An error occurred while reading '{input_file}': {e.__class__.__name__}: {e}")
 
-        # Write unmatched IP addresses to a separate file
-        unmatched_ips_file = os.path.join(output_dir, "unmatched_ips.txt")
+        # Write unmatched IP addresses to a separate file (current directory)
+        unmatched_ips_file = "unmatched_ips.txt"
         with open(unmatched_ips_file, 'w') as unmatched_file:
             unmatched_file.write("\n".join(unmatched_ips))
         print(f"Unmatched IP addresses written to: {unmatched_ips_file}")
@@ -80,4 +74,4 @@ def search_ips_in_files(ip_csv, input_files, output_dir=None):
 # Example usage
 ip_csv = 'ip_new.csv'  # Replace with your CSV file containing IP addresses
 input_files = ['config_file_1.txt', 'config_file_2.txt', 'config_file_3.txt', 'config_file_4.txt']  # Replace with input file paths
-search_ips_in_files(ip_csv, input_files, output_dir='./output')  # Specify an output directory
+search_ips_in_files(ip_csv, input_files)  # Output files created in the current directory
