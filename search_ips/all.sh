@@ -1,17 +1,41 @@
 #!/bin/bash
-
 # Specify the CSV file that contains the IP addresses
 CSV_FILE="ips.csv"
-
 # Specify the output file
 OUTPUT_FILE="output.txt"
-
 # Clear or create the output file
 > "$OUTPUT_FILE"
+###########################################
+# Function to search datagroups where the node IP is found
+###########################################
+search_datagroups_for_ip() {
+    IP="$1"
 
-###########################################
+    echo -e "\nSearching datagroups for Node IP: '$IP'...\n" >> "$OUTPUT_FILE"
+    MATCHED_DATAGROUPS=$(tmsh list ltm data-group internal | awk -v ip="$IP" '
+    BEGIN {datagroup=""}
+    {
+        # Capture the name of the current datagroup
+        if ($0 ~ /ltm data-group internal/) {
+            datagroup = $4
+        }
+        # Check if the IP appears in the records field
+        if (match($0, ip)) {
+            print "Datagroup where node is found: " datagroup
+        }
+    }')
+
+    if [ -z "$MATCHED_DATAGROUPS" ]; then
+        echo -e "No datagroups found containing node IP: '$IP'\n" >> "$OUTPUT_FILE"
+        return
+    fi
+
+    echo -e "$MATCHED_DATAGROUPS\n" >> "$OUTPUT_FILE"
+}
+
+###############################################
 # Function to process each pool
-###########################################
+###############################################
 process_pool() {
     POOL_NAME="$1"
 
@@ -29,9 +53,9 @@ process_pool() {
     FOUND_DATAGROUPS=$(tmsh list ltm data-group internal | awk -v base_name="$BASE_NAME" '
     BEGIN {datagroup=""}
     {
-        # Capture the name of the current data group
+        # Capture the name of the current datagroup
         if ($0 ~ /ltm data-group internal/) {
-            datagroup = $4  # Get the data group name
+            datagroup = $4  # Get the datagroup name
         }
         # Match lines explicitly containing "/Common/<base_name>" in the correct context
         if (match($0, "/Common/"base_name"[^ ]*")) {
@@ -50,7 +74,7 @@ process_pool() {
     ########################################################
     # Extract the first parts of matched records
     ########################################################
-    echo -e "Extracting First Parts of Matching Records that correspond to a Virtual server..\n" >> "$OUTPUT_FILE"
+    echo -e "Extracting First Parts of Matching Records...\n" >> "$OUTPUT_FILE"
     FIRST_PARTS=$(echo "$FOUND_DATAGROUPS" | awk -F':' '
     {
         # Extract the first part of the record (before ":")
@@ -58,9 +82,8 @@ process_pool() {
             split($1, parts, " ");
             print parts[1]
         }
-    }')
+    }' | sort | uniq)  # Deduplicate the extracted virtual servers using `sort | uniq`
 
-    # Debugging: Log the extracted first parts
     if [ -z "$FIRST_PARTS" ]; then
         echo -e "No First Parts Extracted from matching records.\n" >> "$OUTPUT_FILE"
         return
@@ -72,8 +95,7 @@ process_pool() {
     ############################################################
     echo -e "Performing Extended Search for Matched Virtual servers...\n" >> "$OUTPUT_FILE"
     echo "$FIRST_PARTS" | while read -r PART; do
-        echo -e "Searching for records containing Virtual server'$PART'...\n" >> "$OUTPUT_FILE"
-
+        echo -e "Searching for records containing Virtual server '$PART'...\n" >> "$OUTPUT_FILE"
         EXTENDED_SEARCH=$(tmsh list ltm data-group internal | awk -v part="$PART" '
         BEGIN {datagroup=""}
         {
@@ -88,7 +110,6 @@ process_pool() {
             }
         }')
 
-        # Debugging: Log the extended search results
         if [ -z "$EXTENDED_SEARCH" ]; then
             echo -e "No matching records found for: '$PART'\n" >> "$OUTPUT_FILE"
             continue
@@ -110,7 +131,6 @@ process_pool() {
             }
         }' | sort | uniq)  # Sort and remove duplicates
 
-        # Debugging: Log the pools affected
         if [ -n "$POOLS_AFFECTED" ]; then
             echo -e "Pools Affected by '$PART':\n$POOLS_AFFECTED\n" >> "$OUTPUT_FILE"
         else
@@ -138,19 +158,21 @@ find_and_format_output() {
     echo -e "\n=========================================" >> "$OUTPUT_FILE"
     echo -e "Processing IP: $IP\n" >> "$OUTPUT_FILE"
 
+    # Find datagroups containing the node IP
+    search_datagroups_for_ip "$IP"
+
     # Find pools where the IP is a member
     POOL_NAMES=$(tmsh list ltm pool one-line | grep "$IP" | awk '{print $3}')
 
     if [ -z "$POOL_NAMES" ]; then
         echo -e "No Pools Found for IP: $IP\n" >> "$OUTPUT_FILE"
-        return
+    else
+        echo -e "Pools Associated with the IP:\n" >> "$OUTPUT_FILE"
+        echo "$POOL_NAMES" | while read -r POOL_NAME; do
+            echo -e "- $POOL_NAME\n" >> "$OUTPUT_FILE"
+            process_pool "$POOL_NAME"
+        done
     fi
-
-    echo -e "Pools Associated with the IP:\n" >> "$OUTPUT_FILE"
-    echo "$POOL_NAMES" | while read -r POOL_NAME; do
-        echo -e "- $POOL_NAME\n" >> "$OUTPUT_FILE"
-        process_pool "$POOL_NAME"
-    done
 
     echo -e "=========================================\n" >> "$OUTPUT_FILE"
 }
