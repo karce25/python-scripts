@@ -1,10 +1,47 @@
 #!/bin/bash
-# Specify the CSV file that contains the IP addresses
-CSV_FILE="ips.csv"
+
+###############################################
+# Display a usage message if arguments are missing
+###############################################
+usage() {
+    echo "Usage: $0 -f <input_csv>"
+    echo "    -f: Specify the CSV file containing IP addresses."
+    exit 1
+}
+
+###############################################
+# Parse command-line arguments
+###############################################
+CSV_FILE=""
+while getopts "f:" opt; do
+    case "$opt" in
+        f)
+            CSV_FILE=$OPTARG
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+# Ensure the CSV file is provided
+if [ -z "$CSV_FILE" ]; then
+    usage
+fi
+
+# Ensure the specified file exists
+if [ ! -f "$CSV_FILE" ]; then
+    echo "Error: File '$CSV_FILE' not found."
+    exit 1
+fi
+
 # Specify the output file
 OUTPUT_FILE="output.txt"
 # Clear or create the output file
 > "$OUTPUT_FILE"
+
+echo -e "\nPlease wait while gathering info...\n"
+
 ###########################################
 # Function to search datagroups where the node IP is found
 ###########################################
