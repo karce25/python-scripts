@@ -1,56 +1,84 @@
 import csv
 
-# Input and output filenames
+# Input and output file names
 input_file = 'output.txt'
 output_file = 'output.csv'
 
 # Initialize storage for rows
 rows = []
 
-# Read and parse data from output.txt
+# Open and read the input file
 with open(input_file, 'r') as infile:
     current_ip = ""
-    datagroup = ""
-    pools = ""
-    virtual_server = ""
-    pools_affected = []
+    datagroups = []  # List of datagroups where the node is found
+    current_pool = ""
+    virtual_servers = []  # List of virtual servers
+    pools_affected = []  # Pools affected
+
     for line in infile:
         line = line.strip()
 
-        # Process IP Address
+        # Extract Processing IP
         if line.startswith("Processing IP:"):
             current_ip = line.replace("Processing IP: ", "")
+            datagroups = []  # Reset datagroups for the new IP
+            continue
 
-        # Process Datagroup Name
+        # Extract Datagroups where the node IP is found
         elif line.startswith("Datagroup where node is found:"):
             datagroup = line.replace("Datagroup where node is found: ", "")
+            datagroups.append(datagroup)
 
-        # Process Pools Associated with IP
+        # Identify Pools Associated
         elif line.startswith("Pools Associated with the IP:"):
-            pools = next(infile).strip()  # Get the next line after Pools Associated
+            continue
+        elif line.startswith("-"):  # Pool line
+            current_pool = line.replace("-", "").strip()
 
-        # Process Virtual Server Name
-        elif line.startswith("Virtual Server Attached to"):
-            virtual_server = line.split(": ")[1] if ": " in line else ""
+        # Extract Virtual Servers
+        elif line.startswith("Extracted Virtual servers:"):
+            virtual_servers = []  # Reset for new set of virtual servers
+        elif line.startswith('"') or line.startswith('/Common'):
+            virtual_servers.append(line)
 
-        # Process Pools Affected
+        # Extract Pools Affected
         elif line.startswith("Pools Affected by"):
-            if ": " in line:  # Validate proper formatting
-                pools_affected.append(line.split(": ")[1].strip())
+            pools_affected = []  # Reset for new affected pools
+        elif line.startswith("/Common"):  # Affected pool entries
+            pools_affected.append(line)
 
-        # Section End Marker
+        # Append the row when section ends
         elif line == "=========================================":
-            # Append row and reset variables at section end
-            rows.append([current_ip, datagroup, pools, virtual_server, "; ".join(pools_affected)])
-            current_ip = datagroup = pools = virtual_server = ""
+            # Add aggregated row to the CSV file
+            rows.append([
+                current_ip,
+                "; ".join(datagroups),
+                current_pool,
+                "; ".join(virtual_servers),
+                "; ".join(pools_affected)
+            ])
+
+            # Reset variables for the next section
+            current_ip = ""
+            datagroups = []
+            current_pool = ""
+            virtual_servers = []
             pools_affected = []
 
-# Write data to a CSV file
+# Write rows to a CSV file
 with open(output_file, 'w', newline='') as outfile:
     writer = csv.writer(outfile)
-    # Add header row
-    writer.writerow(["IP", "Datagroup", "Pools", "Virtual Server", "Pools Affected"])
-    # Add all rows
+
+    # Specify headers for the CSV file
+    writer.writerow([
+        "Processing IP",
+        "Datagroup where node is found",
+        "Processing Pool",
+        "Extracted Virtual servers",
+        "Pools Affected by"
+    ])
+
+    # Write the rows collected from the input file
     writer.writerows(rows)
 
-print(f"Data has been written to {output_file}")
+print(f"Data has been successfully extracted to {output_file}")
