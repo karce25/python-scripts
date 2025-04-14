@@ -5,14 +5,14 @@ input_file = 'output.txt'
 output_file = 'output.csv'
 
 # Initialize storage for rows
-rows = []
+rows = []  # Rows for CSV output
 
 # Open and read the input file
 with open(input_file, 'r') as infile:
     current_ip = ""
-    datagroups = []  # List of datagroups where the node is found
+    datagroups = []  # Datagroups where the node is found
     current_pool = ""
-    virtual_servers = []  # List of virtual servers
+    virtual_servers = []  # Virtual servers extracted
     pools_affected = []  # Pools affected
 
     for line in infile:
@@ -47,7 +47,7 @@ with open(input_file, 'r') as infile:
         elif line.startswith("/Common"):  # Affected pool entries
             pools_affected.append(line)
 
-        # Append the row when section ends
+        # Section End Marker
         elif line == "=========================================":
             # Add aggregated row to the CSV file
             rows.append([
