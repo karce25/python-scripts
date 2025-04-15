@@ -1,8 +1,30 @@
 #!/bin/bash
 
-# Input and Output CSV file names
-input_csv="input.csv"
-output_csv="output.csv"
+# Function to display usage
+usage() {
+    echo "Usage: $0 -i <input_csv> -o <output_csv>"
+    exit 1
+}
+
+# Parse arguments
+while getopts "i:o:" opt; do
+    case $opt in
+        i)
+            input_csv=$OPTARG
+            ;;
+        o)
+            output_csv=$OPTARG
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+# Check if both input and output arguments are provided
+if [[ -z $input_csv || -z $output_csv ]]; then
+    usage
+fi
 
 # Initialize the output CSV file with headers
 echo "VirtualServerName,iRules,SNAT" > "$output_csv"
