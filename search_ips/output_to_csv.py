@@ -2,7 +2,7 @@ import csv
 
 # Input and output filenames
 input_file = 'output.txt'
-csv_file = 'output_v4.csv'
+csv_file = 'output_v5.csv'
 
 # Initialize storage for rows
 rows = []
@@ -16,9 +16,11 @@ with open(input_file, 'r') as infile:
     current_pool = ""  # Processing Pool
     virtual_servers = []  # Extracted Virtual servers for a given pool
     pools_affected = []  # Pools Affected (aggregate within a single pool)
+    datagroup_matched = []  # Datagroup matched before the specified line
     virtual_server_attached = ""  # Aggregated Virtual Server Attached to a given pool
+    capturing_datagroups = False  # Flag to control when datagroup matching is collected
     capturing_virtual_server_attached = False  # Flag for handling multi-line Virtual Server Attached
-  
+
     for line in infile:
         line = line.strip()
 
@@ -32,12 +34,14 @@ with open(input_file, 'r') as infile:
                     current_pool,
                     "; ".join(virtual_servers),
                     "; ".join(set(pools_affected)),  # Deduplicate pools affected
+                    "; ".join(set(datagroup_matched)),  # Deduplicate datagroup matched
                     virtual_server_attached
                 ])
             # Start a new section; reset all relevant fields
             current_ip = line.replace("Processing IP: ", "").strip()
-            datagroups, virtual_servers, pools_affected = [], [], []
+            datagroups, virtual_servers, pools_affected, datagroup_matched = [], [], [], []
             current_pool, virtual_server_attached = "", ""
+            capturing_datagroups = True  # Allow datagroup matching collection
             capturing_virtual_server_attached = False
             continue
 
@@ -55,15 +59,28 @@ with open(input_file, 'r') as infile:
                     current_pool,
                     "; ".join(virtual_servers),
                     "; ".join(set(pools_affected)),  # Deduplicate pools affected
+                    "; ".join(set(datagroup_matched)),  # Deduplicate datagroup matched
                     virtual_server_attached
                 ])
             # Start a new pool; reset related variables
             current_pool = line.replace("Processing Pool: ", "").strip()
-            virtual_servers, pools_affected = [], []  # Reset lists
-            virtual_server_attached, capturing_virtual_server_attached = "", False
+            virtual_servers, pools_affected, datagroup_matched = [], [], []  # Reset lists
+            virtual_server_attached = ""
+            capturing_datagroups = True  # Allow datagroup matching collection again
+            capturing_virtual_server_attached = False
             continue
 
-        # Reset everything after the separator (handles new pool contexts)
+        # Add datagroups matched by pool (only before the "Extracting First Parts" line)
+        elif line.startswith("Found in Datagroup:") and capturing_datagroups:
+            datagroup = line.replace("Found in Datagroup: ", "").strip()
+            datagroup_matched.append(datagroup)
+
+        # Stop capturing datagroup matched when "Extracting First Parts" is encountered
+        elif line.startswith("Extracting First Parts of Matching Records..."):
+            capturing_datagroups = False  # Stop collecting datagroup matched
+            continue
+
+        # Reset everything after the separator (`-----------------------------------------`)
         elif line.startswith("-----------------------------------------"):
             # Append the current pool's data if available
             if current_ip and current_pool:
@@ -73,11 +90,13 @@ with open(input_file, 'r') as infile:
                     current_pool,
                     "; ".join(virtual_servers),
                     "; ".join(set(pools_affected)),  # Deduplicate pools affected
+                    "; ".join(set(datagroup_matched)),  # Deduplicate datagroup matched
                     virtual_server_attached
                 ])
             # Reset relevant variables for the next section
-            current_pool, virtual_servers, pools_affected = "", [], []
+            current_pool, virtual_servers, pools_affected, datagroup_matched = "", [], [], []
             virtual_server_attached, capturing_virtual_server_attached = "", False
+            capturing_datagroups = True  # Reset capturing flag for next pool
             continue
 
         # Process Virtual Server Attached to (multi-line handling)
@@ -110,7 +129,6 @@ with open(input_file, 'r') as infile:
 
         # Pools Affected processing
         elif line.startswith("Pools Affected by"):
-            # Do not reset `pools_affected` here; aggregate within the same pool
             continue
         elif line.startswith("/Common"):
             pools_affected.append(line.strip())
@@ -124,10 +142,13 @@ with open(input_file, 'r') as infile:
                     current_pool,
                     "; ".join(virtual_servers),
                     "; ".join(set(pools_affected)),  # Deduplicate pools affected
+                    "; ".join(set(datagroup_matched)),  # Deduplicate datagroup matched
                     virtual_server_attached
                 ])
-            current_pool, virtual_servers, pools_affected = "", [], []
-            virtual_server_attached, capturing_virtual_server_attached = "", False
+            current_pool, virtual_servers, pools_affected, datagroup_matched = "", [], [], []
+            virtual_server_attached = ""
+            capturing_datagroups = True  # Reset capturing flag for next pool
+            capturing_virtual_server_attached = False
 
     # Store the last section after finishing the loop
     if current_ip and current_pool:
@@ -137,6 +158,7 @@ with open(input_file, 'r') as infile:
             current_pool,
             "; ".join(virtual_servers),
             "; ".join(set(pools_affected)),  # Deduplicate pools affected
+            "; ".join(set(datagroup_matched)),  # Deduplicate datagroup matched
             virtual_server_attached
         ])
 
@@ -150,6 +172,7 @@ with open(csv_file, 'w', newline='') as outfile:
         "Pool where node is found",
         "Virtual servers from datagroups",
         "Pools Affected by virtual server datagroups",
+        "Datagroup matched by pool",  # New column for Datagroup Matched by Pool
         "Virtual server"
     ])
     # Write the extracted rows to the CSV
