@@ -2,63 +2,112 @@
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 -i <input_csv_file> -o <output_file>"
+    echo "Usage: $0 -i <input_csv> -o <output_file>"
     exit 1
 }
 
 # Parse command-line arguments
 while getopts "i:o:" opt; do
     case $opt in
-        i) CSV_FILE="$OPTARG" ;;
-        o) OUTPUT_FILE="$OPTARG" ;;
-        *) usage ;;
+        i) CSV_FILE="$OPTARG" ;;  # Input CSV
+        o) OUTPUT_FILE="$OPTARG" ;; # Output file
+        *) usage ;;  # Display usage for invalid arguments
     esac
 done
 
 # Check if both input and output files are provided
-if [[ -z "$CSV_FILE" || -z "$OUTPUT_FILE" ]]; then
+if [ -z "$CSV_FILE" ] || [ -z "$OUTPUT_FILE" ]; then
     usage
 fi
 
-# Check if the input file exists
-if [[ ! -f "$CSV_FILE" ]]; then
-    echo "Error: Input file '$CSV_FILE' does not exist."
-    exit 1
-fi
+# Rollback commands file (same as output file but with "_rollback" suffix)
+ROLLBACK_FILE="${OUTPUT_FILE%.*}_rollback.txt"
 
-# Clear the output file if it exists
+# Clear output files before starting
 > "$OUTPUT_FILE"
+> "$ROLLBACK_FILE"
 
-# Read the CSV line by line
-while IFS=, read -r f5_pool f5_datagroups; do
-    # Skip the header line
-    if [[ "$f5_pool" == "Pool" && "$f5_datagroups" == "Datagroups" ]]; then
-        continue
-    fi
+#Echo to inform user of the script start
 
-    # Command to list pool members
-    echo "Processing pool: $f5_pool" >> "$OUTPUT_FILE"
-    pool_members_cmd="tmsh list ltm pool $f5_pool members"
-    echo "Running: $pool_members_cmd" >> "$OUTPUT_FILE"
-    
-    # Execute the command and capture output
-    pool_members_output=$(eval "$pool_members_cmd" 2>&1)
-    echo "$pool_members_output" >> "$OUTPUT_FILE"
+echo "Starting cutover script generation..."
 
-    # Split datagroups by `;` and iterate over them
-    IFS=';' read -ra datagroup_array <<< "$f5_datagroups"
-    for dg in "${datagroup_array[@]}"; do
-        # Command to list datagroup entries
-        echo "Processing datagroup: $dg" >> "$OUTPUT_FILE"
-        datagroup_cmd="tmsh list ltm data-group internal $dg"
-        echo "Running: $datagroup_cmd" >> "$OUTPUT_FILE"
-        
-        # Execute the command and capture output
-        datagroup_output=$(eval "$datagroup_cmd" 2>&1)
-        echo "$datagroup_output" >> "$OUTPUT_FILE"
+# Process each line in the CSV (ignoring the header row)
+tail -n +2 "$CSV_FILE" | while IFS=',' read -r ASSIGNED_POOLS CURRENT_IP TARGET_IP DATA_GROUPS; do
+
+    # Split assigned pools (space-separated) into an array
+    IFS=' ' read -r -a POOLS <<< "$ASSIGNED_POOLS"
+
+    # Split data groups (semicolon-separated) into an array
+    IFS=';' read -r -a DATA_GROUP_ENTRIES <<< "$DATA_GROUPS"
+
+    # Variables to store rollback details for data groups
+    DECLARED_PREFIX=""
+    DECLARED_PORT=""
+
+    # Process each pool in Assigned Pools
+    for POOL in "${POOLS[@]}"; do
+        # List the pool members and capture the details
+        POOL_MEMBERS=$(tmsh list ltm pool "$POOL" members)
+
+        # Add a comment indicating pool configuration
+        echo "# Configuration for pool: $POOL" >> "$OUTPUT_FILE"
+
+        # Search for the current IP and dynamically capture its port
+        POOL_PORT=$(echo "$POOL_MEMBERS" | grep -oP "(?<=${CURRENT_IP}:)\d+")
+        if [ -n "$POOL_PORT" ]; then
+            # Normal commands
+            echo "# Add new member to $POOL" >> "$OUTPUT_FILE"
+            echo "tmsh modify ltm pool $POOL members add { $TARGET_IP:$POOL_PORT { address $TARGET_IP } }" >> "$OUTPUT_FILE"
+
+            echo "# Disable current member in $POOL" >> "$OUTPUT_FILE"
+            echo "tmsh modify ltm pool $POOL members modify { $CURRENT_IP:$POOL_PORT { session user-disabled } }" >> "$OUTPUT_FILE"
+
+            # Rollback commands (use all known information directly)
+            echo "# Rollback commands for pool: $POOL" >> "$ROLLBACK_FILE"
+            echo "tmsh modify ltm pool $POOL members modify { $CURRENT_IP:$POOL_PORT { session user-enabled } }" >> "$ROLLBACK_FILE"
+            echo "tmsh modify ltm pool $POOL members modify { $TARGET_IP:$POOL_PORT { session user-disabled } }" >> "$ROLLBACK_FILE"
+        else
+            echo "# WARNING: Current IP ($CURRENT_IP) not found in pool $POOL" >> "$OUTPUT_FILE"
+            echo "# WARNING: Current IP ($CURRENT_IP) not found in pool $POOL" >> "$ROLLBACK_FILE"
+        fi
     done
 
-    echo "" >> "$OUTPUT_FILE"
-done < "$CSV_FILE"
+    # Process each data group in Data Groups
+    for DATA_GROUP in "${DATA_GROUP_ENTRIES[@]}"; do
+        # Add a comment indicating data group configuration
+        echo "# Modify Data group: $DATA_GROUP" >> "$OUTPUT_FILE"
 
-echo "TMSH command outputs have been written to $OUTPUT_FILE."
+        # List the data group records and search for the Current IP
+        DG_RECORDS=$(tmsh list ltm data-group internal "$DATA_GROUP")
+
+        # Search for the data group record containing the Current IP
+        DG_ENTRY=$(echo "$DG_RECORDS" | grep -oP "\".*${CURRENT_IP}:\d+.*\"")
+        
+        if [ -n "$DG_ENTRY" ]; then
+            # Remove extra quotes from DG_ENTRY (sanitize it)
+            DG_ENTRY=$(echo "$DG_ENTRY" | sed 's/^"//;s/"$//')  # Remove leading and trailing quotes
+
+            # Extract the prefix (e.g., "T11", "A11", "P21") and port from the data group entry
+            PREFIX=$(echo "$DG_ENTRY" | awk '{print $1}')
+            DG_PORT=$(echo "$DG_ENTRY" | grep -oP "(?<=${CURRENT_IP}:)\d+")
+
+            # Save extracted prefix and port for rollback
+            DECLARED_PREFIX="$PREFIX"
+            DECLARED_PORT="$DG_PORT"
+
+            # Normal commands
+            echo "tmsh modify ltm data-group internal $DATA_GROUP records add { \"$PREFIX $TARGET_IP:$DG_PORT\" { } }" >> "$OUTPUT_FILE"
+            echo "tmsh modify ltm data-group internal $DATA_GROUP records delete { \"$PREFIX $CURRENT_IP:$DG_PORT\" }" >> "$OUTPUT_FILE"
+        else
+            # Handle missing entries with warnings and placeholders
+            echo "# WARNING: Current IP ($CURRENT_IP) not found in data group $DATA_GROUP" >> "$OUTPUT_FILE"
+            DECLARED_PREFIX="<UNKNOWN_PREFIX>"
+            DECLARED_PORT="<UNKNOWN_PORT>"
+        fi
+
+        # Rollback commands (reuse captured or fallback values)
+        echo "# Rollback commands for data group: $DATA_GROUP" >> "$ROLLBACK_FILE"
+        echo "tmsh modify ltm data-group internal $DATA_GROUP records delete { \"$DECLARED_PREFIX $TARGET_IP:$DECLARED_PORT\" }" >> "$ROLLBACK_FILE"
+        echo "tmsh modify ltm data-group internal $DATA_GROUP records add { \"$DECLARED_PREFIX $CURRENT_IP:$DECLARED_PORT\" { } }" >> "$ROLLBACK_FILE"
+    done
+done
