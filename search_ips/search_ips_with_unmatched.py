@@ -1,7 +1,6 @@
 import csv
-from collections import deque
 
-def search_ips_in_files(ip_csv, input_files):
+def search_exact_ips_in_files(ip_csv, input_files):
     try:
         # Read IP addresses from the CSV file and validate input
         with open(ip_csv, 'r') as csvfile:
@@ -17,44 +16,29 @@ def search_ips_in_files(ip_csv, input_files):
         for input_file in input_files:
             try:
                 found_matches = False  # Flag to check if any matches are found
-                match_content = []  # Store the matched content
-                
+                matched_ips = set()  # Store matched IPs for the current file
+
                 with open(input_file, 'r') as infile:
-                    previous_lines = deque(maxlen=5)
-                    lines_after_match = 0
-                    after_match_buffer = []
-
                     for line in infile:
-                        if lines_after_match > 0:  # Collect lines after match
-                            after_match_buffer.append(line.strip())
-                            lines_after_match -= 1
-                            if lines_after_match == 0:
-                                match_content.append("-- Context Before Match --\n")
-                                match_content.append("\n".join(previous_lines) + "\n")
-                                match_content.append("-- MATCH FOUND --\n")
-                                match_content.append("\n".join(after_match_buffer) + "\n")
-                                match_content.append("\n" + "-" * 40 + "\n")
-                                previous_lines.clear()
-                                after_match_buffer = []
-                            continue
-
-                        previous_lines.append(line.strip())
+                        # Check if the line contains an exact match (whole word match)
+                        # Match each IP against individual line
                         for ip_address in ip_addresses:
-                            if ip_address in line:
+                            # Perform exact match by ensuring the IP is surrounded by non-word characters
+                            tokens = line.split()  # Split line into tokens
+                            if ip_address in tokens:  # Check for exact match of IP as a token
                                 found_matches = True
+                                matched_ips.add(ip_address)  # Track the matched IP
                                 unmatched_ips.discard(ip_address)  # Mark the IP as matched
-                                lines_after_match = 6  # Start collecting lines after the match
-                                after_match_buffer.append(line.strip())
                                 break  # Stop checking other IPs for this line
 
+                # Write matched IPs directly to an output file specific to the text file
                 if found_matches:
-                    # Write matched content to an output file specific to the text file
                     output_file = f"{input_file}_output.txt"
                     with open(output_file, 'w') as outfile:
-                        outfile.writelines(match_content)
-                    print(f"Matches for IP addresses found in '{input_file}', written to '{output_file}'.")
+                        outfile.write("\n".join(matched_ips))
+                    print(f"Exact matches for IP addresses found in '{input_file}', written to '{output_file}'.")
                 else:
-                    print(f"No matches for IP addresses were found in '{input_file}'.")
+                    print(f"No exact matches for IP addresses were found in '{input_file}'.")
             except FileNotFoundError:
                 print(f"Error: The file '{input_file}' was not found.")
             except Exception as e:
@@ -65,7 +49,6 @@ def search_ips_in_files(ip_csv, input_files):
         with open(unmatched_ips_file, 'w') as unmatched_file:
             unmatched_file.write("\n".join(unmatched_ips))
         print(f"Unmatched IP addresses written to: {unmatched_ips_file}")
-
     except FileNotFoundError:
         print(f"Error: The file '{ip_csv}' was not found.")
     except Exception as e:
@@ -74,4 +57,4 @@ def search_ips_in_files(ip_csv, input_files):
 # Example usage
 ip_csv = 'ip_new.csv'  # Replace with your CSV file containing IP addresses
 input_files = ['config_file_1.txt', 'config_file_2.txt', 'config_file_3.txt', 'config_file_4.txt']  # Replace with input file paths
-search_ips_in_files(ip_csv, input_files)  # Output files created in the current directory
+search_exact_ips_in_files(ip_csv, input_files)  # Output files created in the current directory
