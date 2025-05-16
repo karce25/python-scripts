@@ -65,7 +65,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r ASSIGNED_POOLS CURRENT_IP TARGET_
             # Rollback commands 
             echo "# Rollback commands for pool: $POOL" >> "$ROLLBACK_FILE"
             echo "tmsh modify ltm pool $POOL members modify { $CURRENT_IP:$POOL_PORT { session user-enabled } }" >> "$ROLLBACK_FILE"
-            echo "tmsh modify ltm pool $POOL members modify { $TARGET_IP:$POOL_PORT { session user-disabled } }" >> "$ROLLBACK_FILE"
+            echo "tmsh modify ltm pool $POOL members delete { $TARGET_IP:$POOL_PORT }" >> "$ROLLBACK_FILE"
         else
             echo "# WARNING: Current IP ($CURRENT_IP) not found in pool $POOL" >> "$OUTPUT_FILE"
             echo "# WARNING: Current IP ($CURRENT_IP) not found in pool $POOL" >> "$ROLLBACK_FILE"
