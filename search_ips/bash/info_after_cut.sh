@@ -36,14 +36,14 @@ tail -n +2 "$INPUT_CSV" | while IFS=',' read -r ASSIGNED_POOLS CURRENT_IP TARGET
         # List the pool members and capture the details
         POOL_MEMBERS=$(tmsh list ltm pool "$POOL" members)
         
-        # Search for the current IP and dynamically capture its port
-        POOL_PORT=$(echo "$POOL_MEMBERS" | grep -oP "(?<=${CURRENT_IP}:)\d+")
+        # Search for the target IP and dynamically capture its port
+        POOL_PORT=$(echo "$POOL_MEMBERS" | grep -oP "(?<=${TARGET_IP}:)\d+")
         
         if [ -n "$POOL_PORT" ]; then
             # Output the pool, target IP, and port as CSV
             echo "$POOL,$TARGET_IP,$POOL_PORT" >> "$OUTPUT_CSV"
         else
-            echo "# WARNING: Current IP ($CURRENT_IP) not found in pool $POOL" >> "$OUTPUT_CSV"
+            echo "# WARNING: Target IP ($TARGET_IP) not found in pool $POOL" >> "$OUTPUT_CSV"
         fi
     done
 done
