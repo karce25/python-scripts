@@ -78,3 +78,10 @@ if not rollback_file.strip():
 
 # Generate commands
 generate_tmsh_commands(csv_file, snat_pool, irule, output_file, rollback_file)
+
+Remove snat
+RULES=$(tmsh list ltm virtual satoedesktop55_55080_A rules | awk '/rules {/,/}/ {if (!/rules {|}/) print}' | tr -s '[:space:]' ' ' | sed 's/snat_by_source//g'); tmsh modify ltm virtual satoedesktop55_55080_A rules { $RULES }
+
+RULES=$(tmsh list ltm virtual satoedesktop55_55080_A  rules | awk '/rules {/,/}/ {if (!/rules {|}/) print}' | tr -s '[:space:]' ' '); RULES="snat_by_source $RULES"; tmsh modify ltm virtual satoedesktop55_55080_A  rules { $RULES }
+
+
