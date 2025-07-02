@@ -53,7 +53,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r ASSIGNED_POOLS CURRENT_IP TARGET_
         echo "# Configuration for pool: $POOL" >> "$OUTPUT_FILE"
 
         # Search for the current IP and dynamically capture its port
-        POOL_PORT=$(echo "$POOL_MEMBERS" | grep -oP "(?<=${CURRENT_IP}:)\d+")
+        POOL_PORT=$(echo "$POOL_MEMBERS" | grep -oP "(?<=${CURRENT_IP}:)[^\s]+")
         if [ -n "$POOL_PORT" ]; then
             # Commands 
             echo "# Add new member to $POOL" >> "$OUTPUT_FILE"
