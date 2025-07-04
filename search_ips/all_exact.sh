@@ -5,7 +5,7 @@
 ###############################################
 usage() {
     echo "Usage: $0 -f <input_csv> [-o <output_file>]"
-    echo "    -f: Specify the CSV file containing IP addresses."
+    echo "    -i: Specify the CSV file containing IP addresses."
     echo "    -o: Specify the output file (default: output.txt)."
     exit 1
 }
@@ -15,9 +15,9 @@ usage() {
 ###############################################
 CSV_FILE=""
 OUTPUT_FILE="output.txt"  # Default output file
-while getopts "f:o:" opt; do
+while getopts "i:o:" opt; do
     case "$opt" in
-        f)
+        i)
             CSV_FILE=$OPTARG
             ;;
         o)
