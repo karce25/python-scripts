@@ -1,27 +1,40 @@
 import csv
 
 # File paths (update these)
-mapping_file = "mapping.csv"        # Contains columns: current_ip,new_ip
-subset_file = "subset.csv"          # Contains column: current_ip
+mapping_file = "mapping.csv"        # Contains: current_ip_primary,current_ip_secondary,new_ip
+subset_file = "subset.csv"          # Contains: current_ip
 output_file = "mapped_ips.csv"      # Output file
 
-# Step 1: Read mapping into a dictionary
+# Step 1: Build mapping dictionary
 mapping = {}
+
 with open(mapping_file, newline='') as f:
     reader = csv.DictReader(f)
     for row in reader:
-        mapping[row['current_ip']] = row['new_ip']
+        primary = row['current_ip_primary'].strip()
+        secondary = row['current_ip_secondary'].strip()
+        new_ip = row['new_ip'].strip()
 
-# Step 2: Read subset and look up corresponding new IPs
+        # Each row maps only one of them
+        if primary:
+            mapping[primary] = new_ip
+        elif secondary:
+            mapping[secondary] = new_ip
+
+# Step 2: Read subset and find corresponding new IPs
 results = []
+not_found = []
+
 with open(subset_file, newline='') as f:
     reader = csv.DictReader(f)
     for row in reader:
-        current_ip = row['current_ip']
-        new_ip = mapping.get(current_ip, "")  # empty if not found
+        current_ip = row['current_ip'].strip()
+        new_ip = mapping.get(current_ip, "")
+        if not new_ip:
+            not_found.append(current_ip)
         results.append({'current_ip': current_ip, 'new_ip': new_ip})
 
-# Step 3: Write output
+# Step 3: Write results to file
 with open(output_file, 'w', newline='') as f:
     fieldnames = ['current_ip', 'new_ip']
     writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -29,3 +42,7 @@ with open(output_file, 'w', newline='') as f:
     writer.writerows(results)
 
 print(f"✅ Mapping complete. Results saved to {output_file}")
+if not_found:
+    print(f"⚠️ {len(not_found)} IPs not found in mapping file:")
+    for ip in not_found:
+        print("   -", ip)
