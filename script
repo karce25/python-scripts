@@ -1,65 +1,31 @@
-#!/bin/bash
+import csv
 
-# Help function to display usage
-show_help() {
-  echo "Usage: $0 -i <input_file> -o <output_file>"
-  echo ""
-  echo "Options:"
-  echo "  -i  Specify input CSV file containing basenames."
-  echo "  -o  Specify output CSV file for the virtual server list."
-  echo ""
-  exit 1
-}
+# File paths (update these)
+mapping_file = "mapping.csv"        # Contains columns: current_ip,new_ip
+subset_file = "subset.csv"          # Contains column: current_ip
+output_file = "mapped_ips.csv"      # Output file
 
-# Parse arguments
-INPUT_FILE=""
-OUTPUT_FILE=""
+# Step 1: Read mapping into a dictionary
+mapping = {}
+with open(mapping_file, newline='') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        mapping[row['current_ip']] = row['new_ip']
 
-while getopts ":i:o:" opt; do
-  case $opt in
-    i)
-      INPUT_FILE="$OPTARG"
-      ;;
-    o)
-      OUTPUT_FILE="$OPTARG"
-      ;;
-    *)
-      show_help
-      ;;
-  esac
-done
+# Step 2: Read subset and look up corresponding new IPs
+results = []
+with open(subset_file, newline='') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        current_ip = row['current_ip']
+        new_ip = mapping.get(current_ip, "")  # empty if not found
+        results.append({'current_ip': current_ip, 'new_ip': new_ip})
 
-# Check if input and output files are provided
-if [[ -z "$INPUT_FILE" || -z "$OUTPUT_FILE" ]]; then
-  show_help
-fi
+# Step 3: Write output
+with open(output_file, 'w', newline='') as f:
+    fieldnames = ['current_ip', 'new_ip']
+    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(results)
 
-# Check if input file exists
-if [[ ! -f "$INPUT_FILE" ]]; then
-  echo "Input file $INPUT_FILE not found. Please provide a valid input file."
-  exit 1
-fi
-
-# Clear/create the output file
-echo "BaseName,VirtualServerName" > "$OUTPUT_FILE"
-
-# Read the list of all virtual servers from the BIG-IP
-virtual_list=$(tmsh list ltm virtual one-line | awk '{print $3}')
-
-# Loop through each basename in the input CSV file
-while IFS= read -r basename; do
-  # Search for matching virtual servers
-  matches=$(echo "$virtual_list" | grep "^${basename}_")
-
-  if [[ -z "$matches" ]]; then
-    # No virtual server found for the basename
-    echo "$basename,\"no virtual server with $basename\"" >> "$OUTPUT_FILE"
-  else
-    # Write each matching virtual server to output
-    while IFS= read -r match; do
-      echo "$basename,$match" >> "$OUTPUT_FILE"
-    done <<< "$matches"
-  fi
-done < "$INPUT_FILE"
-
-echo "Output written to $OUTPUT_FILE"
+print(f"✅ Mapping complete. Results saved to {output_file}")
