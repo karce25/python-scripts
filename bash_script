@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Output file where the results will be saved
+output_file="gtm_fallback_pools.txt"
+
+# Clear the output file if it exists
+> "$output_file"
+
+# Function to check if a GTM pool has `fallback-mode return-to-dns`
+check_fallback_mode() {
+    pool_name=$1
+    
+    # Get the full configuration details of the pool (replace this command as necessary)
+    pool_config=$(tmsh list gtm pool a "$pool_name" all-properties)
+    
+    # Check if the config contains the `fallback-mode return-to-dns` setting
+    if echo "$pool_config" | grep -q "fallback-mode return-to-dns"; then
+        echo "Pool $pool_name has 'fallback-mode return-to-dns'" >> "$output_file"
+    fi
+}
+
+# List all the GTM pools
+# Use 'tmsh' command or any other method to get the list of pools
+pools=$(tmsh list gtm pool a | grep "^gtm pool a " | awk '{print $4}')
+
+# Loop through each pool and check its fallback mode
+for pool in $pools; do
+    check_fallback_mode "$pool"
+done
+
+# Final message
+echo "Results written to $output_file"
