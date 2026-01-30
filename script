@@ -1,52 +1,17 @@
 import csv
 
-# File paths (update these)
-mapping_file = "mapping.csv"        # current_ip_primary,current_ip_secondary,new_ip
-subset_file = "subset.csv"          # current_ip
-output_file = "mapped_ips.csv"      # output file
+input_csv = "vlans.csv"
+output_txt = "f5os_vlan_commands.txt"
 
-# Step 1: Build mapping dictionary
-mapping = {}
-
-with open(mapping_file, newline='') as f:
-    reader = csv.DictReader(f)
+with open(input_csv, newline='') as csvfile, open(output_txt, "w") as outfile:
+    reader = csv.DictReader(csvfile)
     for row in reader:
-        primary = row['current_ip_primary'].strip()
-        secondary = row['current_ip_secondary'].strip()
-        new_ip = row['new_ip'].strip()
-
-        # Each row maps only one IP (either primary or secondary)
-        if primary:
-            mapping[primary] = new_ip
-        elif secondary:
-            mapping[secondary] = new_ip
-
-# Step 2: Read subset and skip header line manually
-results = []
-not_found = []
-
-with open(subset_file, newline='') as f:
-    reader = csv.reader(f)
-    next(reader, None)  # ⬅️ Skip the header line manually
-
-    for row in reader:
-        if not row:
+        vlan_name = row["vlan_name"].strip()
+        vlan_id = row["id"].strip()
+        # Skip row if any value is missing
+        if not vlan_name or not vlan_id:
             continue
-        current_ip = row[0].strip()
-        new_ip = mapping.get(current_ip, "")
-        if not new_ip:
-            not_found.append(current_ip)
-        results.append({'current_ip': current_ip, 'new_ip': new_ip})
+        command = f"vlans vlan {vlan_id} config name {vlan_name} vlan-id {vlan_id}"
+        outfile.write(command + "\n")
 
-# Step 3: Write results
-with open(output_file, 'w', newline='') as f:
-    fieldnames = ['current_ip', 'new_ip']
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
-    writer.writeheader()
-    writer.writerows(results)
-
-print(f"✅ Mapping complete. Results saved to {output_file}")
-if not_found:
-    print(f"⚠️ {len(not_found)} IPs not found in mapping file:")
-    for ip in not_found:
-        print("   -", ip)
+print(f"Commands written to {output_txt}")
