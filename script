@@ -1,17 +1,42 @@
-import csv
+#!/bin/bash
 
-input_csv = "vlans.csv"
-output_txt = "f5os_vlan_commands.txt"
+CURRENT_DATE=$(date +%s)
+# Days to check (90 days) converted to seconds
+DAYS_THRESHOLD=7776000 # 90 * 24 * 60 * 60
 
-with open(input_csv, newline='') as csvfile, open(output_txt, "w") as outfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        vlan_name = row["vlan_name"].strip()
-        vlan_id = row["id"].strip()
-        # Skip row if any value is missing
-        if not vlan_name or not vlan_id:
-            continue
-        command = f"vlans vlan {vlan_id} config name {vlan_name} vlan-id {vlan_id}"
-        outfile.write(command + "\n")
+CERT_EXPIRATION_FILE="/var/tmp/cert_expiration_dates"
 
-print(f"Commands written to {output_txt}")
+
+log_message() {
+  logger -p local0.notice "$1"
+}
+
+
+if [ -f "$CERT_EXPIRATION_FILE" ]; then
+  rm "$CERT_EXPIRATION_FILE"
+fi
+
+
+CERT_DATA=$(curl -sku admin: "http://localhost/mgmt/tm/sys/crypto/cert?\$select=name,apiRawValues" | jq '.items')
+
+
+if [ $? -ne 0 ] || [ -z "$CERT_DATA" ]; then
+  log_message "ERROR: Failed to fetch data"
+  exit 1
+fi
+
+
+echo "$CERT_DATA" | jq -c '.[]' | while read -r cert; do
+  
+  cert_name=$(echo "$cert" | jq -r '.name')
+  expiration_date=$(echo "$cert" | jq -r '.apiRawValues.expiration')
+  expiration_epoch=$(date -d "$expiration_date" +%s 2>/dev/null)
+  time_remaining=$((expiration_epoch - CURRENT_DATE))
+
+
+  if [ "$time_remaining" -le "$DAYS_THRESHOLD" ]; then
+    log_message "ALERT: Certificate \"$cert_name\" will expire on \"$expiration_date\" (within 90 days)."
+  fi
+
+  echo "$cert_name,$expiration_date" >> "$CERT_EXPIRATION_FILE"
+done
