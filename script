@@ -1,42 +1,79 @@
-#!/bin/bash
-
-CURRENT_DATE=$(date +%s)
-# Days to check (90 days) converted to seconds
-DAYS_THRESHOLD=7776000 # 90 * 24 * 60 * 60
-
-CERT_EXPIRATION_FILE="/var/tmp/cert_expiration_dates"
+import re
 
 
-log_message() {
-  logger -p local0.notice "$1"
-}
+def extract_rseries_vlans(config):
+    """
+    Extract VLAN ID and names from rSeries configuration.
+    :param config: rSeries configuration as string.
+    :return: Dictionary with VLAN ID as key and name as value.
+    """
+    vlan_data = {}
+    vlan_blocks = config.split("!")  # Split by '!' to separate VLAN blocks
+    for block in vlan_blocks:
+        vlan_id_match = re.search(r"config vlan-id (\d+)", block)
+        vlan_name_match = re.search(r"config name (\S+)", block)
+        if vlan_id_match and vlan_name_match:
+            vlan_id = vlan_id_match.group(1)
+            vlan_name = vlan_name_match.group(1)
+            vlan_data[vlan_id] = vlan_name
+    return vlan_data
 
 
-if [ -f "$CERT_EXPIRATION_FILE" ]; then
-  rm "$CERT_EXPIRATION_FILE"
-fi
+def extract_viprion_vlans(config):
+    """
+    Extract VLAN ID and names from Viprion configuration.
+    :param config: Viprion configuration as string.
+    :return: Dictionary with VLAN ID as key and name as value.
+    """
+    vlan_data = {}
+    vlan_blocks = re.findall(r"net vlan (\S+) \{.*?\s+tag (\d+)", config, re.DOTALL)
+    for vlan_name, vlan_id in vlan_blocks:
+        vlan_data[vlan_id] = vlan_name
+    return vlan_data
 
 
-CERT_DATA=$(curl -sku admin: "http://localhost/mgmt/tm/sys/crypto/cert?\$select=name,apiRawValues" | jq '.items')
+def compare_vlans(rseries_file, viprion_file):
+    """
+    Compare VLAN configurations between rSeries and Viprion using their respective files.
+    :param rseries_file: Path to the rSeries configuration file.
+    :param viprion_file: Path to the Viprion configuration file.
+    """
+    # Read configuration files
+    with open(rseries_file, 'r') as f:
+        rseries_config = f.read()
+
+    with open(viprion_file, 'r') as f:
+        viprion_config = f.read()
+
+    # Extract VLAN configurations
+    rseries_vlans = extract_rseries_vlans(rseries_config)
+    viprion_vlans = extract_viprion_vlans(viprion_config)
+
+    # Compare VLANs
+    print("Comparing VLANs between rSeries and Viprion:")
+    print("-" * 50)
+
+    for vlan_id, rseries_name in rseries_vlans.items():
+        viprion_name = viprion_vlans.get(vlan_id)
+        if viprion_name:
+            if rseries_name == viprion_name:
+                print(f"VLAN ID {vlan_id}: Match (Name: {rseries_name})")
+            else:
+                print(f"VLAN ID {vlan_id}: Mismatch")
+                print(f"  rSeries Name: {rseries_name}")
+                print(f"  Viprion Name: {viprion_name}")
+        else:
+            print(f"VLAN ID {vlan_id}: Missing in Viprion configuration.")
+
+    for vlan_id, viprion_name in viprion_vlans.items():
+        if vlan_id not in rseries_vlans:
+            print(f"VLAN ID {vlan_id}: Missing in rSeries configuration.")
 
 
-if [ $? -ne 0 ] || [ -z "$CERT_DATA" ]; then
-  log_message "ERROR: Failed to fetch data"
-  exit 1
-fi
+# Example usage
+if __name__ == "__main__":
+    # Provide file paths
+    rseries_file_path = "rseries_vlans.txt"
+    viprion_file_path = "viprion.txt"
 
-
-echo "$CERT_DATA" | jq -c '.[]' | while read -r cert; do
-  
-  cert_name=$(echo "$cert" | jq -r '.name')
-  expiration_date=$(echo "$cert" | jq -r '.apiRawValues.expiration')
-  expiration_epoch=$(date -d "$expiration_date" +%s 2>/dev/null)
-  time_remaining=$((expiration_epoch - CURRENT_DATE))
-
-
-  if [ "$time_remaining" -le "$DAYS_THRESHOLD" ]; then
-    log_message "ALERT: Certificate \"$cert_name\" will expire on \"$expiration_date\" (within 90 days)."
-  fi
-
-  echo "$cert_name,$expiration_date" >> "$CERT_EXPIRATION_FILE"
-done
+    compare_vlans(rseries_file_path, viprion_file_path)
