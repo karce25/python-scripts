@@ -1,82 +1,43 @@
-import re
+import csv
 
-
-def extract_rseries_vlans(config):
+def check_column_matches(file_path, column1, column2):
     """
-    Extract VLAN ID and names from rSeries configuration.
-    :param config: rSeries configuration as string.
-    :return: Dictionary with VLAN ID as key and name as value.
+    Check if two columns in a CSV file match row by row.
+
+    :param file_path: Path to the CSV file
+    :param column1: Header or index of the first column
+    :param column2: Header or index of the second column
     """
-    vlan_data = {}
-    vlan_blocks = config.split("!")  # Split by '!' to separate VLAN blocks
-    for block in vlan_blocks:
-        vlan_id_match = re.search(r"config vlan-id (\d+)", block)
-        vlan_name_match = re.search(r"config name (\S+)", block)
-        if vlan_id_match and vlan_name_match:
-            vlan_id = vlan_id_match.group(1)
-            vlan_name = vlan_name_match.group(1)
-            vlan_data[vlan_id] = vlan_name
-    return vlan_data
+    try:
+        with open(file_path, mode='r') as csv_file:
+            reader = csv.DictReader(csv_file)  # Read as dictionary for column headers
+            mismatches = []
 
+            for index, row in enumerate(reader):
+                value1 = row[column1]
+                value2 = row[column2]
 
-def extract_viprion_vlans(config):
-    """
-    Extract VLAN ID and names from Viprion configuration.
-    :param config: Viprion configuration as string.
-    :return: Dictionary with VLAN ID as key and name as value.
-    """
-    vlan_data = {}
-    vlan_blocks = re.findall(r"net vlan (\S+) \{.*?\s+tag (\d+)", config, re.DOTALL)
-    for vlan_name, vlan_id in vlan_blocks:
-        vlan_data[vlan_id] = vlan_name
-    return vlan_data
+                if value1 != value2:
+                    mismatches.append((index + 1, value1, value2))
 
-
-def compare_vlans(rseries_file, viprion_file):
-    """
-    Compare VLAN configurations between rSeries and Viprion using their respective files.
-    :param rseries_file: Path to the rSeries configuration file.
-    :param viprion_file: Path to the Viprion configuration file.
-    """
-    # Read configuration files
-    with open(rseries_file, 'r') as f:
-        rseries_config = f.read()
-
-    with open(viprion_file, 'r') as f:
-        viprion_config = f.read()
-
-    # Extract VLAN configurations
-    rseries_vlans = extract_rseries_vlans(rseries_config)
-    viprion_vlans = extract_viprion_vlans(viprion_config)
-
-    # Compare VLANs
-    print("Comparing VLANs between rSeries and Viprion:")
-    print("-" * 50)
-
-    for vlan_id, rseries_name in rseries_vlans.items():
-        viprion_name = viprion_vlans.get(vlan_id)
-        if viprion_name:
-            if rseries_name == viprion_name:
-                print(f"VLAN ID {vlan_id}: Match (Name: {rseries_name})")
+            if mismatches:
+                print(f"Found {len(mismatches)} mismatches:")
+                for mismatch in mismatches:
+                    print(f"Row {mismatch[0]}: {column1}='{mismatch[1]}' != {column2}='{mismatch[2]}'")
             else:
-                print(f"VLAN ID {vlan_id}: Mismatch")
-                print(f"  rSeries Name: {rseries_name}")
-                print(f"  Viprion Name: {viprion_name}")
-        else:
-            print(f"VLAN ID {vlan_id}: Missing in Viprion configuration.")
+                print(f"All rows match for columns: {column1} and {column2}")
 
-    for vlan_id, viprion_name in viprion_vlans.items():
-        if vlan_id not in rseries_vlans:
-            print(f"VLAN ID {vlan_id}: Missing in rSeries configuration.")
+    except FileNotFoundError:
+        print("Error: File not found.")
+    except KeyError as e:
+        print(f"Error: Column '{e}' not found in the CSV file.")
+    except Exception as e:
+        print(f"Error: {e}")
 
+# Example Usage:
+# Provide the file path and column names you want to compare.
+file_path = 'example.csv'
+column1 = 'ColumnA'
+column2 = 'ColumnB'
 
-# Example usage
-if __name__ == "__main__":
-    # Provide file paths
-    rseries_file_path = "rseries_vlans.txt"
-    viprion_file_path = "viprion.txt"
-
-    compare_vlans(rseries_file_path, viprion_file_path)
-
-
-https://license.f5net.com/devkeygenerator/elmProd.jsp?id=V5BPROD&title=Production
+check_column_matches(file_path, column1, column2)
