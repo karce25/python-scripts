@@ -77,3 +77,6 @@ if __name__ == "__main__":
     viprion_file_path = "viprion.txt"
 
     compare_vlans(rseries_file_path, viprion_file_path)
+
+
+https://license.f5net.com/devkeygenerator/elmProd.jsp?id=V5BPROD&title=Production
