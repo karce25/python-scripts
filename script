@@ -99,3 +99,5 @@ done
 
 
 echo "Done. ${ITERATION} iterations completed. Output saved to: ${OUTPUT_FILE}"
+
+tmsh list ltm virtual one-line | grep "rules {.*xff-removal.*rhe-insert.*}" | awk '{print $3}'
