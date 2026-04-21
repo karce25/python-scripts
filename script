@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Script to list all wide-IPs that are AVAILABLE in an F5 GTM device using tmsh
+# Script to list Wide-IPs with "Availability : available" using grep
 
 # Output file path
 OUTPUT_FILE="/path/to/your/output/wide_ips_available.txt"
 
-# Check if running as the root user
+# Check if running as root, since tmsh requires elevated privileges
 if [[ $EUID -ne 0 ]]; then
     echo "This script must be run as root."
     exit 1
@@ -13,22 +13,10 @@ fi
 
 echo "Retrieving all wide-IPs that are AVAILABLE..."
 
-# Process the tmsh command output to capture wide-IPs with "Availability : available"
-tmsh -q show gtm wideip | awk '
-    BEGIN {current_wideip=""; is_available=0}
-    /Gtm::WideIp::/ {
-        current_wideip=$3; is_available=0  # Start a new wide-IP entry
-    }
-    /Availability : available/ {
-        is_available=1  # Mark this wide-IP as available
-    }
-    is_available && current_wideip!="" {
-        print current_wideip  # Print the wide-IP that is available
-        is_available=0  # Reset flag after recording
-    }
-' >> "$OUTPUT_FILE"
+# Use grep to capture wide-IP names followed by "Availability : available"
+tmsh -q show gtm wideip | grep -E 'Gtm::WideIp::|Availability : available' | grep -B 1 "Availability : available" | grep 'Gtm::WideIp::' | awk '{print $3}' > "$OUTPUT_FILE"
 
-# Check if we found any available wide-IPs
+# Check if the output file contains any results
 if [[ -s $OUTPUT_FILE ]]; then
     echo "Wide-IPs that are AVAILABLE have been written to $OUTPUT_FILE"
 else
