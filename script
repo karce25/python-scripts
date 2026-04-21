@@ -13,11 +13,21 @@ fi
 
 echo "Retrieving all wide-IPs that are ONLINE..."
 
+# Temporary variable to store the current wide-IP name
+current_wideip=""
+
 # Execute tmsh and parse the output
-tmsh -q show gtm wideip | awk '
-    /Gtm::WideIp::/ {wideip=$3} 
-    /Availability : online/ {print wideip}
-' > "$OUTPUT_FILE"
+tmsh -q show gtm wideip | while read -r line; do
+    # Check for wide-IP name
+    if [[ $line == Gtm::WideIp::* ]]; then
+        current_wideip=$(echo "$line" | awk '{print $3}')
+    fi
+
+    # Check for availability status being online
+    if [[ $line == *"Availability : online"* ]]; then
+        echo "$current_wideip" >> "$OUTPUT_FILE"
+    fi
+done
 
 # Check if we found any online wide-IPs
 if [[ -s $OUTPUT_FILE ]]; then
