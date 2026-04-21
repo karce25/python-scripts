@@ -1,32 +1,30 @@
 #!/bin/bash
 
-# Script to list all wide-IPs that are UP in an F5 GTM device using tmsh
+# Script to list all wide-IPs that are ONLINE in an F5 GTM device using tmsh
 
 # Output file path
-OUTPUT_FILE="/path/to/your/output/wide_ips_up.txt"
+OUTPUT_FILE="/path/to/your/output/wide_ips_online.txt"
 
 # Check if running as the root user
 if [[ $EUID -ne 0 ]]; then
-   echo "This script must be run as root."
-   exit 1
+    echo "This script must be run as root."
+    exit 1
 fi
 
-echo "Retrieving all wide-IPs that are UP..."
+echo "Retrieving all wide-IPs that are ONLINE..."
 
-# Query tmsh for wide-IPs and filter those that are UP
-wide_ips=$(tmsh -q show gtm wideip | grep -E 'Wide IP|Availability State' | awk '
-    /Wide IP/ {wideip=$3}
-    /Availability State/ && $3=="available" {print wideip}
-')
+# Execute tmsh and parse the output
+tmsh -q show gtm wideip | awk '
+    /Gtm::WideIp::/ {wideip=$3} 
+    /Availability : online/ {print wideip}
+' > "$OUTPUT_FILE"
 
-# Write results to a file
-if [[ -z $wide_ips ]]; then
-    echo "No wide-IPs are currently UP." > "$OUTPUT_FILE"
+# Check if we found any online wide-IPs
+if [[ -s $OUTPUT_FILE ]]; then
+    echo "Wide-IPs that are ONLINE have been written to $OUTPUT_FILE"
 else
-    echo "Wide-IPs that are UP:" > "$OUTPUT_FILE"
-    echo "$wide_ips" >> "$OUTPUT_FILE"
+    echo "No wide-IPs are currently ONLINE."
+    echo "No wide-IPs are currently ONLINE." > "$OUTPUT_FILE"
 fi
-
-echo "The output has been saved to $OUTPUT_FILE"
 
 exit 0
