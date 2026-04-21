@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Script to list all wide-IPs that are ONLINE in an F5 GTM device using tmsh
+# Script to list all wide-IPs that are AVAILABLE in an F5 GTM device using tmsh
 
 # Output file path
-OUTPUT_FILE="/path/to/your/output/wide_ips_online.txt"
+OUTPUT_FILE="/path/to/your/output/wide_ips_available.txt"
 
 # Check if running as the root user
 if [[ $EUID -ne 0 ]]; then
@@ -11,29 +11,29 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-echo "Retrieving all wide-IPs that are ONLINE..."
+echo "Retrieving all wide-IPs that are AVAILABLE..."
 
-# Execute tmsh and parse the output
+# Process the tmsh command output to capture wide-IPs with "Availability : available"
 tmsh -q show gtm wideip | awk '
-    BEGIN {current_wideip=""; is_online=0}
+    BEGIN {current_wideip=""; is_available=0}
     /Gtm::WideIp::/ {
-        current_wideip=$3; is_online=0  # Start a new wide-IP entry
+        current_wideip=$3; is_available=0  # Start a new wide-IP entry
     }
-    /Availability : online/ {
-        is_online=1  # Mark this wide-IP as online
+    /Availability : available/ {
+        is_available=1  # Mark this wide-IP as available
     }
-    is_online && current_wideip!="" {
-        print current_wideip
-        is_online=0  # Reset flag after recording
+    is_available && current_wideip!="" {
+        print current_wideip  # Print the wide-IP that is available
+        is_available=0  # Reset flag after recording
     }
-' > "$OUTPUT_FILE"
+' >> "$OUTPUT_FILE"
 
-# Check if we found any online wide-IPs
+# Check if we found any available wide-IPs
 if [[ -s $OUTPUT_FILE ]]; then
-    echo "Wide-IPs that are ONLINE have been written to $OUTPUT_FILE"
+    echo "Wide-IPs that are AVAILABLE have been written to $OUTPUT_FILE"
 else
-    echo "No wide-IPs are currently ONLINE."
-    echo "No wide-IPs are currently ONLINE." > "$OUTPUT_FILE"
+    echo "No wide-IPs are currently AVAILABLE."
+    echo "No wide-IPs are currently AVAILABLE." > "$OUTPUT_FILE"
 fi
 
 exit 0
