@@ -1,0 +1,9 @@
+K000158038: BIG-IP TMM vulnerability CVE-2026-41956	UDP virtual server configured with a classification profile
+K000158978: BIG-IP SSL/TLS vulnerability CVE-2026-40629	Apply
+K000159034: BIG-IP HTTP/2 vulnerability CVE-2026-42409	Probably
+K000160901: BIG-IP DTLS vulnerability CVE-2026-42920	Probably
+K000160874: BIG-IP Configuration utility vulnerability CVE-2026-39455	Ldap only
+K000160945: BIG-IP DNS Cache vulnerability CVE-2026-39458	Apply
+K000158082: BIG-IP SSL vulnerability CVE-2026-40618	Probably
+K000160862: BIG-IP FastL4 virtual server vulnerability CVE-2026-42781	Probably ePVA
+K000160875: BIG-IP PEM iRules vulnerability CVE-2026-41218	Does not apply
